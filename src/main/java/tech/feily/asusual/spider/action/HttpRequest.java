@@ -1,4 +1,4 @@
-package tech.feily.asusual.spider.service;
+package tech.feily.asusual.spider.action;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -23,17 +24,36 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import tech.feily.asusual.spider.model.InfoModel;
+import tech.feily.asusual.spider.service.InfoService;
+import tech.feily.asusual.spider.service.InfoServiceImpl;
+import tech.feily.asusual.spider.utils.BlockedQueue;
 
-public class HttpService {
+/*
+ * This class initiates a request for the URL, 
+ * parses the HTML document, and then performs further operations.
+ * @author FeilyZhang
+ * @version v0.1
+ */
+public class HttpRequest {
     
     String keyWord = ".*2020.*调剂.*";
     String contentType = "text/html.*";
     Timestamp timestamp = null;
-    
+
+    Logger log = Logger.getLogger(HttpRequest.class);
+    InfoService is = new InfoServiceImpl();
     OkHttpClient client = new OkHttpClient();
+    ExecutorService exec = Executors.newFixedThreadPool(3);
     Map<String, InfoModel> cache = new ConcurrentHashMap<String, InfoModel>();
     
-    ExecutorService exec = Executors.newFixedThreadPool(3);
+    public HttpRequest() {
+        List<InfoModel> infos = is.selectAll();
+        for (InfoModel info : infos) {
+            System.out.println(info.toString());
+            cache.put(info.getTitle(), info);
+        }
+        log.info("缓存初始化完成。");
+    }
     
     public void get(final String url, final BlockedQueue queue) throws IOException {
         Request request = new Request.Builder()
@@ -45,12 +65,7 @@ public class HttpService {
 
             public void onFailure(Call arg0, final IOException arg1) {
                 // Submit a task to thread pool for handling exception.
-                exec.execute(new Runnable() {
-                    public void run() {
-                        System.out.println("Exception occurred, exception stack are as follows.");
-                        arg1.printStackTrace();
-                    }
-                });
+                log.error("http请求异常，请求url为 " + url + ", 相关信息为 " + arg1.getMessage());
             }
 
             public void onResponse(Call arg0, Response arg1) throws IOException {
@@ -66,13 +81,14 @@ public class HttpService {
                             cache.put(info.getTitle(), info);
                             exec.execute(new Runnable() {
                                 public void run() {
-                                    // update the table 'target' here.
-                                    System.out.println("已添加至target，并已刷新缓存");
+                                    is.update(info);
+                                    log.info("已存在于缓存和数据表中，同时已刷新缓存和数据表。" + info.toString());
                                 }
                             });
                         // Otherwise, refresh the cache first
                         // and submit a task to submit the infoModel to the BlockedQueue.
                         } else if (info != null && !cache.containsKey(info.getTitle())) {
+                            log.info("初次请求，已写入数据表并刷新缓存，" + info.toString());
                             cache.put(info.getTitle(), info);
                             exec.execute(new Runnable() {
                                 public void run() {
@@ -121,21 +137,21 @@ public class HttpService {
         for (Element link : links) {
             if (Pattern.matches(keyWord, link.text())) {
                 timestamp = new Timestamp(System.currentTimeMillis());
-                // If the current cache already contains the resolved hyperlink。
-                // Then you only need to modify the necessary fields。
+                // If the current cache already contains the resolved hyperlink.
+                // Then you only need to modify the necessary fields.
                 if (cache.containsKey(link.text())) {
                     InfoModel infoModel = cache.get(link.text());
                     infoModel.setLastVisit(timestamp);
-                    infoModel.setVisitCount(infoModel.getVisitCount() + 1);
+                    infoModel.setVisitCount((long)(infoModel.getVisitCount() + 1));
                     infos.add(infoModel);
-                // Otherwise, reassemble an infoModel。
+                // Otherwise, reassemble an infoModel.
                 } else {
                     InfoModel infoModel = new InfoModel();
                     infoModel.setTitle(link.text());
                     infoModel.setFirstVisit(timestamp);
                     infoModel.setLastVisit(timestamp);
-                    infoModel.setVisitCount(1);
-                    // Generate full URL。
+                    infoModel.setVisitCount((long)1);
+                    // Generate full URL.
                     if (link.attr("href").startsWith("http")) {
                         infoModel.setUrl(link.attr("href"));
                     } else {

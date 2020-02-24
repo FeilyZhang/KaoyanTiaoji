@@ -1,14 +1,41 @@
 package tech.feily.asusual.spider.model;
 
+import java.io.Serializable;
 import java.sql.Timestamp;
 
-public class InfoModel {
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
 
+@Entity
+@Table(name="INFO")
+public class InfoModel implements Serializable{
+    
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -3028242250897440464L;
+    @GeneratedValue (strategy = GenerationType.IDENTITY)
+    @Id
+    @Column(name = "ID")
+    private int id;
+    @Column(name = "TITLE")
     private String title;
+    @Column(name = "FIRSTVISIT")
     private Timestamp firstVisit;
+    @Column(name = "LASTVISIT")
     private Timestamp lastVisit;
+    @Column(name = "VISITCOUNT")
     private long visitCount;
+    @Column(name = "URL")
     private String url;
+    
+    public void setId(int id) {
+        this.id = id;
+    }
     
     public void setTitle(String title) {
         this.title = title;
@@ -28,6 +55,10 @@ public class InfoModel {
     
     public void setUrl(String url) {
         this.url = url;
+    }
+    
+    public int getId() {
+        return id;
     }
     
     public String getTitle() {

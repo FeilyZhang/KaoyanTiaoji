@@ -1,4 +1,4 @@
-package tech.feily.asusual.spider.service;
+package tech.feily.asusual.spider.utils;
 
 import java.util.LinkedList;
 
