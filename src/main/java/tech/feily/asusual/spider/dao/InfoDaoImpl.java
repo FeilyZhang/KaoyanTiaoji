@@ -23,7 +23,6 @@ public class InfoDaoImpl implements InfoDao {
     }
 
     public void update(InfoModel info) {
-        SessionFactory sf = SessionFactoryUtils.getSessionFactory();
         Session session = sf.openSession();
         Transaction tx = session.beginTransaction();
         session.update(info);
@@ -33,7 +32,6 @@ public class InfoDaoImpl implements InfoDao {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public List<InfoModel> selectAll() {
-        SessionFactory sf = SessionFactoryUtils.getSessionFactory();
         Session session = sf.openSession();
         Transaction tx = session.beginTransaction();
         Query query = session.createQuery("from InfoModel");

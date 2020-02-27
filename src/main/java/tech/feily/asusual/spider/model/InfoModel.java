@@ -11,7 +11,7 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 
 @Entity
-@Table(name="INFO")
+@Table(name = "INFO")
 public class InfoModel implements Serializable{
     
     /**
@@ -24,11 +24,11 @@ public class InfoModel implements Serializable{
     private int id;
     @Column(name = "TITLE")
     private String title;
-    @Column(name = "FIRSTVISIT")
+    @Column(name = "FIRST_VISIT")
     private Timestamp firstVisit;
-    @Column(name = "LASTVISIT")
+    @Column(name = "LAST_VISIT")
     private Timestamp lastVisit;
-    @Column(name = "VISITCOUNT")
+    @Column(name = "VISIT_COUNT")
     private long visitCount;
     @Column(name = "URL")
     private String url;

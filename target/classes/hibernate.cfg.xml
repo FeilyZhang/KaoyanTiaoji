@@ -24,5 +24,6 @@
     <property name="show_sql">true</property>
     
     <mapping class="tech.feily.asusual.spider.model.InfoModel"/>
+    <mapping class="tech.feily.asusual.spider.model.UserModel"/>
   </session-factory>
 </hibernate-configuration>

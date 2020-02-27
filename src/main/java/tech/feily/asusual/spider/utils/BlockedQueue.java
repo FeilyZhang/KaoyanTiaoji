@@ -2,11 +2,17 @@ package tech.feily.asusual.spider.utils;
 
 import java.util.LinkedList;
 
-import tech.feily.asusual.spider.model.InfoModel;
+import tech.feily.asusual.spider.model.BQModel;
 
+/*
+ * Blocked Queue to simulate the provider and consumer scenarios.
+ * @author Feily Zhang
+ * @version v0.1
+ * @email fei@feily.tech
+ */
 public class BlockedQueue {
     private final int max;
-    private final LinkedList<InfoModel> eventQueue = new LinkedList<InfoModel>();
+    private final LinkedList<BQModel> eventQueue = new LinkedList<BQModel>();
     private final static int DEFAULT_MAX_EVENT = 10;
     
     public BlockedQueue() {
@@ -17,7 +23,7 @@ public class BlockedQueue {
         this.max = max;
     }
     
-    public void produce(InfoModel infoModel) {
+    public void produce(BQModel bqModel) {
         synchronized(eventQueue) {
             while (eventQueue.size() >= max) {
                 try {
@@ -26,12 +32,12 @@ public class BlockedQueue {
                     e.printStackTrace();
                 }
             }
-            eventQueue.addLast(infoModel);
+            eventQueue.addLast(bqModel);
             eventQueue.notifyAll();
         }
     }
     
-    public InfoModel consume() {
+    public BQModel consume() {
         synchronized(eventQueue) {
             while (eventQueue.isEmpty()) {
                 try {
@@ -40,7 +46,7 @@ public class BlockedQueue {
                    e.printStackTrace();
                 }
             }
-            InfoModel event = eventQueue.removeFirst();
+            BQModel event = eventQueue.removeFirst();
             this.eventQueue.notifyAll();
             return event;
         }

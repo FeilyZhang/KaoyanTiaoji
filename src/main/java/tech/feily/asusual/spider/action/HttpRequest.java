@@ -20,9 +20,13 @@ import org.jsoup.select.Elements;
 
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.Headers;
+import okhttp3.Headers.Builder;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import tech.feily.asusual.spider.model.BQModel;
+import tech.feily.asusual.spider.model.CampusModel;
 import tech.feily.asusual.spider.model.InfoModel;
 import tech.feily.asusual.spider.service.InfoService;
 import tech.feily.asusual.spider.service.InfoServiceImpl;
@@ -55,9 +59,10 @@ public class HttpRequest {
         log.info("缓存初始化完成。");
     }
     
-    public void get(final String url, final BlockedQueue queue) throws IOException {
+    public void get(final CampusModel campus, final BlockedQueue queue) throws IOException {
         Request request = new Request.Builder()
-                .url(url)
+                .url(campus.getUrl())
+                .headers(setHeaders())
                 .get()
                 .build();
         Call call = client.newCall(request);
@@ -65,39 +70,51 @@ public class HttpRequest {
 
             public void onFailure(Call arg0, final IOException arg1) {
                 // Submit a task to thread pool for handling exception.
-                log.error("http请求异常，请求url为 " + url + ", 相关信息为 " + arg1.getMessage());
+                log.error("http请求异常，请求url为 " + campus.getUrl() + ", 相关信息为 " + arg1.getMessage());
             }
 
             public void onResponse(Call arg0, Response arg1) throws IOException {
-                byte[] html = arg1.body().bytes();
-                // First, analyze charset.
-                String charset = parseCharset(html);
-                if (charset != null) {
-                    // Then, parsing all eligible content in HTML document.
-                    final List<InfoModel> infos = parseLink(html, charset, getHost(url));
-                    for (final InfoModel info : infos) {
-                        // If the cache already exists, refresh the cache first and then update the table 'target' .
-                        if (info != null && cache.containsKey(info.getTitle())) {
-                            cache.put(info.getTitle(), info);
-                            exec.execute(new Runnable() {
-                                public void run() {
-                                    is.update(info);
-                                    log.info("已存在于缓存和数据表中，同时已刷新缓存和数据表。" + info.toString());
+                if (arg1.code() == 200) {
+                    byte[] html = arg1.body().bytes();
+                    // First, analyze charset.
+                    String charset = parseCharset(html);
+                    if (charset != null) {
+                        // Then, parsing all eligible content in HTML document.
+                        final List<InfoModel> infos = parseLink(html, charset, getHost(campus.getUrl()));
+                        if (infos.isEmpty() || infos == null) {
+                            log.info(campus.getName() + "已扫描，未发现信息！");
+                        } else {
+                            for (final InfoModel info : infos) {
+                                // If the cache already exists, refresh the cache first and then update the table 'target' .
+                                if (info != null && cache.containsKey(info.getTitle())) {
+                                    cache.put(info.getTitle(), info);
+                                    exec.execute(new Runnable() {
+                                        public void run() {
+                                            is.update(info);
+                                            log.info("已存在于缓存和数据表中，同时已刷新缓存和数据表。" + info.toString());
+                                        }
+                                    });
+                                // Otherwise, refresh the cache first
+                                // and submit a task to submit the infoModel to the BlockedQueue.
+                                } else if (info != null && !cache.containsKey(info.getTitle())) {
+                                    log.info("初次请求，已写入数据表并刷新缓存，" + info.toString());
+                                    cache.put(info.getTitle(), info);
+                                    final BQModel bq = new BQModel();
+                                    bq.setCampusModel(campus);
+                                    bq.setInfoModel(info);
+                                    exec.execute(new Runnable() {
+                                        public void run() {
+                                            queue.produce(bq);
+                                        }
+                                    });
                                 }
-                            });
-                        // Otherwise, refresh the cache first
-                        // and submit a task to submit the infoModel to the BlockedQueue.
-                        } else if (info != null && !cache.containsKey(info.getTitle())) {
-                            log.info("初次请求，已写入数据表并刷新缓存，" + info.toString());
-                            cache.put(info.getTitle(), info);
-                            exec.execute(new Runnable() {
-                                public void run() {
-                                    queue.produce(info);
-                                }
-                            });
+                            }
                         }
                     }
+                } else {
+                    log.error(campus.toString() + "扫描失败, 请求状态为" + arg1.isSuccessful() + ", 请求码为" + arg1.code());
                 }
+                arg1.close();
             }
             
         });
@@ -173,6 +190,15 @@ public class HttpRequest {
         Pattern p = Pattern.compile("(http://|https://)?([^/]*)",Pattern.CASE_INSENSITIVE);
         Matcher m = p.matcher(url);
         return m.find()?m.group(2):url;
+    }
+    
+    public static Headers setHeaders() {
+        Builder headerBuilder = new Builder();
+        headerBuilder.add("Accept", "text/plain, text/html");
+        headerBuilder.add("Accept-Language", "en,zh");
+        headerBuilder.add("User-Agent", "Mozilla/5.0 (Linux; X11)");
+        headerBuilder.add("Cache-Control", "no-cache");
+        return headerBuilder.build();
     }
     
 }
